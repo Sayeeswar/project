@@ -97,19 +97,39 @@
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     <div>
       <label class="block text-sm font-medium text-gray-700">Hospital</label>
-      <input type="text" name="hospital" value="{{ request.GET.hospital|default_if_none:'' }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+      <select name="hospital" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+        <option value="">All hospitals</option>
+        {% for hospital in hospital_list %}
+          <option value="{{ hospital }}" {% if request.GET.hospital == hospital %}selected{% endif %}>{{ hospital }}</option>
+        {% endfor %}
+      </select>
     </div>
     <div>
       <label class="block text-sm font-medium text-gray-700">Speciality</label>
-      <input type="text" name="speciality" value="{{ request.GET.speciality|default_if_none:'' }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+      <select name="speciality" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+        <option value="">All specialities</option>
+        {% for speciality in speciality_list %}
+          <option value="{{ speciality }}" {% if request.GET.speciality == speciality %}selected{% endif %}>{{ speciality }}</option>
+        {% endfor %}
+      </select>
     </div>
     <div>
       <label class="block text-sm font-medium text-gray-700">Category</label>
-      <input type="text" name="category" value="{{ request.GET.category|default_if_none:'' }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+      <select name="category" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+        <option value="">All categories</option>
+        {% for category in category_list %}
+          <option value="{{ category }}" {% if request.GET.category == category %}selected{% endif %}>{{ category }}</option>
+        {% endfor %}
+      </select>
     </div>
     <div>
       <label class="block text-sm font-medium text-gray-700">Sub Category</label>
-      <input type="text" name="subcatg" value="{{ request.GET.subcatg|default_if_none:'' }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+      <select name="subcatg" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+        <option value="">All sub categories</option>
+        {% for subcatg in subcatg_list %}
+          <option value="{{ subcatg }}" {% if request.GET.subcatg == subcatg %}selected{% endif %}>{{ subcatg }}</option>
+        {% endfor %}
+      </select>
     </div>
     <div>
       <label class="block text-sm font-medium text-gray-700">Time Range</label>
@@ -153,10 +173,7 @@
             <thead>
                 <tr>
                     <th>Month</th>
-                    <th>New</th>
-                    <th>Revisit</th>
-                    <th>Admission</th>
-                    <th>Surgeries</th>
+                    <th>Total</th>
                 </tr>
             </thead>
             <tbody id="monthlyTableBody"></tbody>
@@ -170,12 +187,8 @@
 {% endif %}
 
 <script>
-const labels = {{ labels|safe }};
-const newV = {{ newvisits|safe }};
-const reV = {{ revisits|safe }};
-const adm = {{ admissions|safe }};
-const dis = {{ discharges|safe }};
-const surg = {{ surgeries_list|default:"[]"|safe }};
+const labels = {{ labels|default:"[]"|safe }};
+const totals = {{ values|default:"[]"|safe }};
 
 (function fillDepartments() {
     const depSel = document.getElementById("departmentSelect");
@@ -199,10 +212,7 @@ new Chart(document.getElementById("lineChart"), {
     data: {
         labels: labels,
         datasets: [
-            { label: "New", data: newV, borderColor: "cyan", tension: .3 },
-            { label: "Revisit", data: reV, borderColor: "yellow", tension: .3 },
-            { label: "Admissions", data: adm, borderColor: "green", tension: .3 },
-            { label: "Surgeries", data: surg, borderColor: "red", tension: .3 }
+            { label: "Total", data: totals, borderColor: "cyan", tension: .3 }
         ]
     },
     options: { responsive: true }
@@ -215,10 +225,7 @@ new Chart(document.getElementById("lineChart"), {
         body.innerHTML += `
         <tr>
             <td>${labels[i]}</td>
-            <td>${newV[i] || 0}</td>
-            <td>${reV[i] || 0}</td>
-            <td>${adm[i] || 0}</td>
-            <td>${surg[i] || 0}</td>
+            <td>${totals[i] || 0}</td>
         </tr>`;
     }
 })();

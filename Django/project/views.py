@@ -85,13 +85,42 @@ def home(request):
     labels = [g["period"].strftime("%d-%m-%Y") for g in grouped]
     values = [g["total"] for g in grouped]
 
+    hospital_list = (
+        HospitalVisit.objects.exclude(hospital__isnull=True)
+        .exclude(hospital__exact="")
+        .values_list("hospital", flat=True)
+        .distinct()
+        .order_by("hospital")
+    )
+    speciality_list = (
+        HospitalVisit.objects.exclude(speciality__isnull=True)
+        .exclude(speciality__exact="")
+        .values_list("speciality", flat=True)
+        .distinct()
+        .order_by("speciality")
+    )
+    category_list = (
+        HospitalVisit.objects.exclude(category__isnull=True)
+        .exclude(category__exact="")
+        .values_list("category", flat=True)
+        .distinct()
+        .order_by("category")
+    )
+    subcatg_list = (
+        HospitalVisit.objects.exclude(subcatg__isnull=True)
+        .exclude(subcatg__exact="")
+        .values_list("subcatg", flat=True)
+        .distinct()
+        .order_by("subcatg")
+    )
+
     context = {
         "labels": labels,
         "values": values,
-        "hospital_list": HospitalVisit.objects.values_list("hospital", flat=True).distinct(),
-        "speciality_list": HospitalVisit.objects.values_list("speciality", flat=True).distinct(),
-        "category_list": HospitalVisit.objects.values_list("category", flat=True).distinct(),
-        "subcatg_list": HospitalVisit.objects.values_list("subcatg", flat=True).distinct(),
+        "hospital_list": hospital_list,
+        "speciality_list": speciality_list,
+        "category_list": category_list,
+        "subcatg_list": subcatg_list,
         "mode": mode,
         "start": start_date,
         "end": end_date,
