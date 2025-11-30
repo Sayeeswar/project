@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Hospital Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #000;
+            color: #e6e6e6;
+        }
+        .filter-box {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 25px;
+            align-items: center;
+        }
+        .filter-box select, .filter-box button {
+            padding: 8px 12px;
+            background: #111;
+            color: #e6e6e6;
+            border: 1px solid #333;
+            border-radius: 6px;
+        }
+        .stats-box {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .stat-card {
+            padding: 15px;
+            background: #1b1b1b;
+            border-radius: 8px;
+            width: 180px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.6);
+        }
+        .stat-card.clickable:hover {
+            background: #252525;
+            transform: translateY(-2px);
+        }
+        .chart-table-container {
+            display: flex;
+            gap: 30px;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+        .chart-wrapper, .table-wrapper {
+            flex: 1;
+            min-width: 400px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #1b1b1b;
+            margin-top: 0;
+        }
+        table th, table td {
+            padding: 10px;
+            border: 1px solid #333;
+        }
+        .filter-card {
+            background: #fff;
+            color: #000;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            max-width: 400px;
+        }
+        input[type="date"] {
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #d4d4d4;
+        }
+        .mode-box label {
+            margin-bottom: 5px;
+            display: block;
+        }
+        button {
+            padding: 12px;
+            background: #4f46e5;
+            border-radius: 10px;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+
+<form method="get" class="space-y-4">
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Hospital</label>
+      <input type="text" name="hospital" value="{{ request.GET.hospital|default_if_none:'' }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Speciality</label>
+      <input type="text" name="speciality" value="{{ request.GET.speciality|default_if_none:'' }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Category</label>
+      <input type="text" name="category" value="{{ request.GET.category|default_if_none:'' }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Sub Category</label>
+      <input type="text" name="subcatg" value="{{ request.GET.subcatg|default_if_none:'' }}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm" />
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700">Time Range</label>
+      <select name="range" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+        <option value="">All time</option>
+        <option value="4weeks" {% if request.GET.range == '4weeks' %}selected{% endif %}>Last 4 weeks</option>
+        <option value="3months" {% if request.GET.range == '3months' %}selected{% endif %}>Last 3 months</option>
+        <option value="1year" {% if request.GET.range == '1year' %}selected{% endif %}>Last 1 year</option>
+        <option value="2years" {% if request.GET.range == '2years' %}selected{% endif %}>Last 2 years</option>
+      </select>
+    </div>
+  </div>
+  <div class="flex space-x-2">
+    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md">Filter</button>
+    <a href="{{ request.path }}" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md">Reset</a>
+  </div>
+</form>
+
+
+<!-- TOTALS -->
+<div class="stats-box">
+    <div class="stat-card"><b>New Visits</b><br>{{ total_new }}</div>
+    <div class="stat-card"><b>Revisits</b><br>{{ total_revisit }}</div>
+    <div class="stat-card"><b>Admissions</b><br>{{ total_admissions }}</div>
+    <div class="stat-card"><b>Discharges</b><br>{{ total_discharges }}</div>
+    <div class="stat-card clickable"><a href="surgeries/"><b>Surgeries</b><br>{{ surgeries }}</a></div>
+    <div class="stat-card"><b>Total Patients</b><br>{{ totals }}</div>
+</div>
+
+<!-- CHART AND TABLE -->
+<div class="chart-table-container">
+
+    <div class="chart-wrapper">
+        <h3>Monthly Trends</h3>
+        <canvas id="lineChart"></canvas>
+    </div>
+
+    <div class="table-wrapper">
+        <h3>Monthly Breakdown</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>New</th>
+                    <th>Revisit</th>
+                    <th>Admission</th>
+                    <th>Surgeries</th>
+                </tr>
+            </thead>
+            <tbody id="monthlyTableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+{% if dept_labels %}
+<h3>Department Comparison</h3>
+<canvas id="barChart"></canvas>
+{% endif %}
+
+<script>
+const labels = {{ labels|safe }};
+const newV = {{ newvisits|safe }};
+const reV = {{ revisits|safe }};
+const adm = {{ admissions|safe }};
+const dis = {{ discharges|safe }};
+const surg = {{ surgeries_list|default:"[]"|safe }};
+
+(function fillDepartments() {
+    const depSel = document.getElementById("departmentSelect");
+    if (!depSel) return;
+    const js = {{ dept_labels|default:"null"|safe }};
+    if (!js) return;
+    const exists = [...depSel.options].map(op => op.value);
+    js.forEach(d => {
+        if (!exists.includes(d)) {
+            const opt = document.createElement("option");
+            opt.value = d;
+            opt.textContent = d;
+            depSel.appendChild(opt);
+        }
+    });
+})();
+
+// LINE CHART
+new Chart(document.getElementById("lineChart"), {
+    type: "line",
+    data: {
+        labels: labels,
+        datasets: [
+            { label: "New", data: newV, borderColor: "cyan", tension: .3 },
+            { label: "Revisit", data: reV, borderColor: "yellow", tension: .3 },
+            { label: "Admissions", data: adm, borderColor: "green", tension: .3 },
+            { label: "Surgeries", data: surg, borderColor: "red", tension: .3 }
+        ]
+    },
+    options: { responsive: true }
+});
+
+// TABLE
+(function () {
+    const body = document.getElementById("monthlyTableBody");
+    for (let i = 0; i < labels.length; i++) {
+        body.innerHTML += `
+        <tr>
+            <td>${labels[i]}</td>
+            <td>${newV[i] || 0}</td>
+            <td>${reV[i] || 0}</td>
+            <td>${adm[i] || 0}</td>
+            <td>${surg[i] || 0}</td>
+        </tr>`;
+    }
+})();
+
+// DATE RANGE APPLY
+function applyFilter() {
+    const s = document.getElementById("start").value;
+    const e = document.getElementById("end").value;
+    const m = document.querySelector('input[name="mode"]:checked').value;
+    if (!s || !e) return alert("Select both dates");
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("start", s);
+    url.searchParams.set("end", e);
+    url.searchParams.set("mode", m);
+    window.location.href = url.toString();
+}
+</script>
+
+</body>
+</html>
