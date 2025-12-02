@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admissions &amp; Discharges</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+  <header class="bg-gray-800 shadow-lg">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div>
+        <p class="text-sm text-gray-400">Hospital throughput</p>
+        <h1 class="text-2xl font-bold">Admissions &amp; Discharges</h1>
+      </div>
+      <a href="{{ home_url }}" class="text-blue-400 hover:text-blue-200">&larr; Back to dashboard</a>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-6 py-8 space-y-8">
+    <form method="get" class="bg-gray-800 rounded-xl shadow-lg p-6 grid gap-6 md:grid-cols-3">
+      <div class="flex flex-col space-y-2">
+        <label class="text-gray-200 font-semibold text-sm">Date Range</label>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input id="start_date" name="start_date" type="text" value="{{ start_date }}" class="bg-gray-700 text-white rounded-md px-4 py-2 w-full sm:w-40 cursor-pointer" placeholder="Start date" />
+          <input id="end_date" name="end_date" type="text" value="{{ end_date }}" class="bg-gray-700 text-white rounded-md px-4 py-2 w-full sm:w-40 cursor-pointer" placeholder="End date" />
+        </div>
+      </div>
+      <div class="flex flex-col space-y-2">
+        <label class="text-gray-200 font-semibold text-sm">Hospital</label>
+        <select name="hospital" class="bg-gray-700 text-white rounded-md px-4 py-2 w-full">
+          <option value="ALL">All Hospitals</option>
+          {% for hospital in hospitals %}
+            <option value="{{ hospital }}" {% if selected_hospital == hospital %}selected{% endif %}>{{ hospital }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex flex-col space-y-2">
+        <label class="text-gray-200 font-semibold text-sm">Department</label>
+        <select name="speciality" class="bg-gray-700 text-white rounded-md px-4 py-2 w-full">
+          <option value="ALL">All Departments</option>
+          {% for speciality in specialities %}
+            <option value="{{ speciality }}" {% if selected_speciality == speciality %}selected{% endif %}>{{ speciality }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="md:col-span-3 flex justify-end gap-3">
+        <a href="{{ request.path }}" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg">Clear</a>
+        <button class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg" type="submit">Apply</button>
+      </div>
+    </form>
+
+    <section class="grid card-grid gap-6" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));">
+      <article class="bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+        <h3 class="text-lg font-semibold mb-2">Total Admissions</h3>
+        <p class="text-4xl font-bold text-green-400">{{ admissions_total }}</p>
+      </article>
+      <article class="bg-gray-800 rounded-xl shadow-lg p-6 text-center">
+        <h3 class="text-lg font-semibold mb-2">Total Discharges</h3>
+        <p class="text-4xl font-bold text-blue-400">{{ discharges_total }}</p>
+      </article>
+    </section>
+
+    <section class="grid md:grid-cols-2 gap-6">
+      <div class="bg-gray-800 rounded-xl shadow-lg p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold">Admission Types</h2>
+          <span class="text-green-300 text-sm">{{ admissions_subcategories|length }} types</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-700">
+            <thead>
+              <tr class="bg-gray-700 text-left text-xs uppercase tracking-wider">
+                <th class="px-4 py-2">Subcategory</th>
+                <th class="px-4 py-2 text-right">Count</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-800">
+              {% for row in admissions_subcategories %}
+                <tr>
+                  <td class="px-4 py-2">{{ row.subcatg }}</td>
+                  <td class="px-4 py-2 text-right font-semibold">{{ row.total }}</td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="2" class="px-4 py-4 text-center text-gray-400">No admissions data for the selected filters.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-gray-800 rounded-xl shadow-lg p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold">Discharge Types</h2>
+          <span class="text-blue-300 text-sm">{{ discharges_subcategories|length }} types</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-700">
+            <thead>
+              <tr class="bg-gray-700 text-left text-xs uppercase tracking-wider">
+                <th class="px-4 py-2">Subcategory</th>
+                <th class="px-4 py-2 text-right">Count</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-800">
+              {% for row in discharges_subcategories %}
+                <tr>
+                  <td class="px-4 py-2">{{ row.subcatg }}</td>
+                  <td class="px-4 py-2 text-right font-semibold">{{ row.total }}</td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="2" class="px-4 py-4 text-center text-gray-400">No discharges data for the selected filters.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script>
+    flatpickr('#start_date', { altInput: true, altFormat: 'M j, Y', dateFormat: 'Y-m-d' });
+    flatpickr('#end_date', { altInput: true, altFormat: 'M j, Y', dateFormat: 'Y-m-d' });
+  </script>
+</body>
+</html>

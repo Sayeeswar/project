@@ -11,6 +11,7 @@ from django.db.models.functions import (
 )
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
+from django.urls import reverse
 
 from .models import HospitalVisit
 
@@ -277,3 +278,68 @@ def Surgeries(request: HttpRequest) -> HttpResponse:
     }
 
     return render(request, "surgeries.html", context)
+
+
+def admissions_overview(request: HttpRequest) -> HttpResponse:
+    """Show admissions and discharges totals along with their subcategory splits."""
+
+    selected_hospital = request.GET.get("hospital", "ALL")
+    selected_speciality = request.GET.get("speciality", "ALL")
+
+    base_qs = HospitalVisit.objects.filter(
+        Q(category__iexact="admissions") | Q(category__iexact="discharges")
+    )
+
+    if selected_hospital != "ALL":
+        base_qs = base_qs.filter(hospital__iexact=selected_hospital)
+
+    qs = filter_by_date_range(base_qs, request)
+
+    if selected_speciality != "ALL":
+        qs = qs.filter(speciality__iexact=selected_speciality)
+
+    admissions_total = (
+        qs.filter(category__iexact="admissions").aggregate(total=Sum("thevalue"))["total"]
+        or 0
+    )
+    discharges_total = (
+        qs.filter(category__iexact="discharges").aggregate(total=Sum("thevalue"))["total"]
+        or 0
+    )
+
+    admissions_subcategories = (
+        qs.filter(category__iexact="admissions")
+        .exclude(subcatg__isnull=True)
+        .exclude(subcatg__exact="")
+        .values("subcatg")
+        .annotate(total=Sum("thevalue"))
+        .order_by("subcatg")
+    )
+
+    discharges_subcategories = (
+        qs.filter(category__iexact="discharges")
+        .exclude(subcatg__isnull=True)
+        .exclude(subcatg__exact="")
+        .values("subcatg")
+        .annotate(total=Sum("thevalue"))
+        .order_by("subcatg")
+    )
+
+    hospitals = base_qs.values_list("hospital", flat=True).distinct()
+    specialities = base_qs.values_list("speciality", flat=True).distinct()
+
+    context = {
+        "admissions_total": admissions_total,
+        "discharges_total": discharges_total,
+        "admissions_subcategories": admissions_subcategories,
+        "discharges_subcategories": discharges_subcategories,
+        "hospitals": hospitals,
+        "specialities": specialities,
+        "selected_hospital": selected_hospital,
+        "selected_speciality": selected_speciality,
+        "start_date": request.GET.get("start_date", ""),
+        "end_date": request.GET.get("end_date", ""),
+        "home_url": reverse("dashboard_home"),
+    }
+
+    return render(request, "admissions.html", context)
