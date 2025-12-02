@@ -89,10 +89,11 @@
           <h3 class="text-xl font-semibold mb-2">Revisits</h3>
           <p class="text-3xl font-bold text-yellow-400">{{ revisit }}</p>
         </article>
-        <article class="bg-gray-800 rounded-xl shadow-lg p-6 text-center hover:bg-gray-700 transition">
+        <a href="{% url 'admissions_overview' %}" class="bg-gray-800 rounded-xl shadow-lg p-6 text-center hover:bg-gray-700 transition block">
           <h3 class="text-xl font-semibold mb-2">Admissions</h3>
           <p class="text-3xl font-bold text-green-400">{{ admission }}</p>
-        </article>
+          <p class="text-xs text-gray-400 mt-2">View admissions and discharges breakdown</p>
+        </a>
         <article class="bg-gray-800 rounded-xl shadow-lg p-6 text-center hover:bg-gray-700 transition">
           <h3 class="text-xl font-semibold mb-2">Surgeries</h3>
           <p class="text-3xl font-bold text-red-400">{{ surgeries }}</p>
