@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ALL DASHBOARD</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+  <style>
+    .card-grid {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .dropdown-shadow {
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+    }
+    .filter-shell {
+      gap: 1.25rem;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+  <form id="filtersForm" method="get" class="contents">
+    <header class="bg-gray-800 shadow-lg sticky top-0 z-20">
+      <div class="max-w-6xl mx-auto px-6 py-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="flex items-center gap-2 text-2xl font-bold tracking-wide">
+          <button id="allToggle" type="button" class="text-blue-400 hover:text-blue-300 focus:outline-none flex items-center gap-2">
+            <span class="underline">ALL</span>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          <span>DASHBOARD</span>
+        </div>
+        <div class="relative w-full md:w-auto">
+          <div class="flex items-center gap-3 bg-gray-700 rounded-lg px-3 py-2">
+            <label for="hospitalSelect" class="text-sm font-semibold whitespace-nowrap">Hospital:</label>
+            <select id="hospitalSelect" name="hospital" class="bg-gray-800 text-gray-100 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 w-full md:w-56">
+              <option value="ALL">All Hospitals</option>
+              {% for hospital in hospitals %}
+                <option value="{{ hospital }}" {% if selected_hospital == hospital %}selected{% endif %}>{{ hospital }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div id="allDropdown" class="absolute left-0 mt-2 w-52 bg-gray-800 rounded-lg dropdown-shadow hidden">
+            <ul class="py-2 text-sm" id="allDropdownList">
+              <li class="px-4 py-2 text-gray-400 text-xs uppercase tracking-wide">Hospitals</li>
+              {% for hospital in hospitals %}
+                <li class="px-4 py-2 hover:bg-gray-700 cursor-pointer" data-hospital="{{ hospital }}">{{ hospital }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 py-8 space-y-8">
+      <section class="bg-gray-800 rounded-xl shadow-lg p-6 grid md:grid-cols-3 filter-shell">
+        <div class="flex flex-col space-y-2">
+          <label class="text-gray-200 font-semibold text-sm">Date Range</label>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input id="start_date" name="start_date" type="text" value="{{ start_date }}" class="bg-gray-700 text-white rounded-md px-4 py-2 w-full sm:w-40 cursor-pointer" placeholder="Start date" />
+            <input id="end_date" name="end_date" type="text" value="{{ end_date }}" class="bg-gray-700 text-white rounded-md px-4 py-2 w-full sm:w-40 cursor-pointer" placeholder="End date" />
+          </div>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <label class="text-gray-200 font-semibold text-sm">Departments</label>
+          <select id="specialitySelect" name="speciality" class="bg-gray-700 text-white rounded-md px-4 py-2 w-full">
+            <option value="ALL">All Departments</option>
+            {% for speciality in specialities %}
+              <option value="{{ speciality }}" {% if selected_speciality == speciality %}selected{% endif %}>{{ speciality }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="flex flex-col space-y-2">
+          <label class="text-gray-200 font-semibold text-sm">Quick Filters</label>
+          <div class="flex flex-wrap gap-3">
+            <button id="clearFilters" class="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg" type="button">Clear</button>
+            <button id="applyFilters" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg" type="submit">Apply</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid card-grid gap-6">
+        <article class="bg-gray-800 rounded-xl shadow-lg p-6 text-center hover:bg-gray-700 transition">
+          <h3 class="text-xl font-semibold mb-2">New Visits</h3>
+          <p class="text-3xl font-bold text-blue-400">{{ newvisit }}</p>
+        </article>
+        <article class="bg-gray-800 rounded-xl shadow-lg p-6 text-center hover:bg-gray-700 transition">
+          <h3 class="text-xl font-semibold mb-2">Revisits</h3>
+          <p class="text-3xl font-bold text-yellow-400">{{ revisit }}</p>
+        </article>
+        <article class="bg-gray-800 rounded-xl shadow-lg p-6 text-center hover:bg-gray-700 transition">
+          <h3 class="text-xl font-semibold mb-2">Admissions</h3>
+          <p class="text-3xl font-bold text-green-400">{{ admission }}</p>
+        </article>
+        <article class="bg-gray-800 rounded-xl shadow-lg p-6 text-center hover:bg-gray-700 transition">
+          <h3 class="text-xl font-semibold mb-2">Surgeries</h3>
+          <p class="text-3xl font-bold text-red-400">{{ surgeries }}</p>
+        </article>
+      </section>
+
+      <section class="bg-gray-800 rounded-xl shadow-lg p-6 space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <h2 class="text-xl font-semibold">Activity Trend</h2>
+          <div class="flex gap-2" role="group" aria-label="Chart mode">
+            <button data-mode="month" type="button" class="modeBtn px-4 py-2 bg-blue-600 rounded">Monthly</button>
+            <button data-mode="week" type="button" class="modeBtn px-4 py-2 bg-green-600 rounded">Weekly</button>
+            <button data-mode="year" type="button" class="modeBtn px-4 py-2 bg-purple-600 rounded">Yearly</button>
+          </div>
+        </div>
+        <div class="h-96">
+          <canvas id="lineChart" class="w-full h-full"></canvas>
+        </div>
+      </section>
+    </main>
+    <input type="hidden" name="mode" id="modeInput" value="{{ mode }}" />
+  </form>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/plugins/rangePlugin.js"></script>
+  <script>
+    const labels = {{ labels|safe }};
+    const newVisits = {{ new_visits_data|safe }};
+    const reVisits = {{ re_visits_data|safe }};
+    const admissions = {{ admissions_data|safe }};
+    const surgeries = {{ surgeries_data|safe }};
+    const modeInput = document.getElementById('modeInput');
+    const modeButtons = document.querySelectorAll('.modeBtn');
+    const hospitalSelect = document.getElementById('hospitalSelect');
+    const allDropdown = document.getElementById('allDropdown');
+    const allDropdownList = document.getElementById('allDropdownList');
+    const allToggle = document.getElementById('allToggle');
+    const filtersForm = document.getElementById('filtersForm');
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    const clearFilters = document.getElementById('clearFilters');
+
+    let chartInstance;
+
+    function buildChart() {
+      const ctx = document.getElementById('lineChart').getContext('2d');
+      const config = {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'New Visits', data: newVisits, borderWidth: 2, tension: 0.35, pointRadius: 3, borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.2)' },
+            { label: 'Revisits', data: reVisits, borderWidth: 2, tension: 0.35, pointRadius: 3, borderColor: '#fbbf24', backgroundColor: 'rgba(251,191,36,0.2)' },
+            { label: 'Admissions', data: admissions, borderWidth: 2, tension: 0.35, pointRadius: 3, borderColor: '#a78bfa', backgroundColor: 'rgba(167,139,250,0.2)' },
+            { label: 'Surgeries', data: surgeries, borderWidth: 2, tension: 0.35, pointRadius: 3, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.2)' }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { color: '#d1d5db' } } },
+          plugins: { legend: { labels: { color: '#e5e7eb' } } },
+          elements: { point: { radius: 3 } }
+        }
+      };
+
+      if (chartInstance) chartInstance.destroy();
+      chartInstance = new Chart(ctx, config);
+    }
+
+    function setModeButtonState(current) {
+      modeButtons.forEach((btn) => {
+        if (btn.dataset.mode === current) {
+          btn.classList.add('ring-2', 'ring-offset-2', 'ring-blue-400');
+        } else {
+          btn.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-400');
+        }
+      });
+    }
+
+    hospitalSelect.addEventListener('change', () => filtersForm.submit());
+
+    allToggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      allDropdown.classList.toggle('hidden');
+    });
+
+    allDropdownList.addEventListener('click', (event) => {
+      const target = event.target.closest('li[data-hospital]');
+      if (!target) return;
+      hospitalSelect.value = target.getAttribute('data-hospital');
+      filtersForm.submit();
+      allDropdown.classList.add('hidden');
+    });
+
+    document.addEventListener('click', () => allDropdown.classList.add('hidden'));
+
+    clearFilters.addEventListener('click', () => {
+      hospitalSelect.value = 'ALL';
+      document.getElementById('specialitySelect').value = 'ALL';
+      if (startDateInput._flatpickr) startDateInput._flatpickr.clear();
+      if (endDateInput._flatpickr) endDateInput._flatpickr.clear();
+      filtersForm.submit();
+    });
+
+    modeButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        modeInput.value = button.dataset.mode;
+        setModeButtonState(button.dataset.mode);
+        filtersForm.submit();
+      });
+    });
+
+    flatpickr('#start_date', {
+      altInput: true,
+      altFormat: 'M j, Y',
+      dateFormat: 'Y-m-d',
+      onChange: function (selectedDates) {
+        if (selectedDates.length > 0) {
+          endPicker.set('minDate', selectedDates[0]);
+        }
+      }
+    });
+    const endPicker = flatpickr('#end_date', {
+      altInput: true,
+      altFormat: 'M j, Y',
+      dateFormat: 'Y-m-d'
+    });
+
+    setModeButtonState(modeInput.value);
+    buildChart();
+  </script>
+</body>
+</html>
