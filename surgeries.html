@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MedCenter Pro - Surgical Dashboard</title>
+  <style>
+  /* Consolidated styles for surgeries page */
+  body { font-family: Arial, sans-serif; background:#111; color:#e6e6e6; margin:0; min-height:100vh }
+  nav { display:flex; align-items:center; justify-content:space-between; background:#1a1a1a; padding:12px 24px }
+  .logo { color:#39ff14; font-weight:700 }
+  .dashboard-container { display:flex; gap:28px; padding:32px; min-height:calc(100vh - 120px) }
+  .left-column { flex:0 0 45%; min-width:360px }
+  .right-column { flex:1; min-width:320px; background:#1a1a1a; padding:20px; border-radius:8px }
+  .right-column.empty { display:flex; align-items:center; justify-content:center; color:#aaa }
+  .departments-table { width:100%; border-collapse:collapse; background:#111 }
+  .departments-table th { background:#222; color:#39ff14; padding:10px 14px; text-align:left }
+  .departments-table td { padding:10px 14px; border-bottom:1px solid #333 }
+  .departments-table tbody tr { cursor:pointer; transition:.15s }
+  .departments-table tbody tr:hover { background:#222 }
+  .departments-table tbody tr.active { background:#39ff14; color:#000; font-weight:700 }
+  .chart-section { margin-top:14px; background:#111; padding:12px; border-radius:8px }
+  /* Ensure canvases don't grow too tall; Chart.js will respect maintainAspectRatio:false */
+  .chart-section canvas { width:100%; display:block; max-height:320px; height:240px; }
+  @media (max-width:768px) { .chart-section canvas { height:180px; max-height:220px } }
+  .details-header h2 { color:#39ff14; margin:0 }
+  .details-stats { display:grid; grid-template-columns:repeat(2,1fr); gap:10px }
+  .detail-stat-card { background:#222; padding:12px; border-left:3px solid #39ff14; border-radius:6px }
+  .procedure-card { background:#222; padding:12px; border-radius:8px; margin-bottom:10px }
+  .procedure-title { color:#39ff14; font-weight:700 }
+  .procedures-grid { margin-top:12px }
+  .stat-card {
+    background: #1a1a1a;
+    border-radius: 8px;
+    padding: 20px 24px;
+    flex: 1 1 200px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.stat-number {
+    font-size: 2.2em;
+    font-weight: bold;
+    color: #39ff14;
+}
+.stat-label { font-size: 1em; color: #aaa; margin-top: 8px; }
+
+  @media (max-width:1024px) { .dashboard-container{flex-direction:column} .left-column,.right-column{min-width:100%} }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<!-- Fixed hospital filter button (top-right) -->
+<div id="hospitalFilterRoot" style="position:fixed;top:12px;right:12px;z-index:1200">
+  <div class="dropdown" id="hospitalDropdownRoot">
+    <button id="hospitalFilterBtn" style="background:#39ff14;color:#000;border:none;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer"> 
+      {% if selected_hospital %}{{ selected_hospital }}{% else %}All Hospitals{% endif %} ▾
+    </button>
+    <div id="hospitalFilterMenu" style="display:none;position:absolute;right:0;top:42px;background:#1a1a1a;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.4);overflow:auto;max-height:320px;min-width:200px;padding:6px">
+      <a class="hospital-option" href="?hospital=">All Hospitals</a>
+      {% for h in hospitals %}
+        <a class="hospital-option" href="?hospital={{ h }}">{{ h }}</a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<main>
+<!-- Two-Column Dashboard Layout -->
+<div class="dashboard-container">
+  <!-- Left Column: Departments Table & Chart -->
+  <div class="left-column">
+    <!-- Departments Table -->
+    <div class="departments-section">
+      <h3>Select a Department</h3>
+      <table class="departments-table" id="departmentsTable">
+        <thead>
+          <tr>
+            <th>Department Name</th>
+          </tr>
+        </thead>
+        <tbody id="departmentsTableBody">
+          {% for dept in surgeries_department %}
+            <tr data-department="{{ dept }}" class="{% if department == dept %}active{% endif %}">
+              <td>{{ dept }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td style="text-align: center; color: #aaa;">No departments available</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Chart Section -->
+    <div class="chart-section">
+      <h3>Procedures Overview</h3>
+      <canvas id="proceduresChart" height="100"></canvas>
+      <!-- Surgeries time-series: one line per year, months on X axis -->
+      <div style="margin-top:16px">
+        <h4 style="color:#39ff14;margin:6px 0">Surgeries: Month-by-Month (per Year)</h4>
+        <canvas id="surgeriesTimeChart" height="180"></canvas>
+      </div>
+      <!-- Monthly surgeries table for latest year -->
+      <div id="monthlySurgeriesTableContainer" style="margin-top:20px;background:#111;padding:12px;border-radius:8px">
+        <h4 style="color:#39ff14;margin:0 0 12px 0">Monthly Surgeries (Latest Years)</h4>
+        <table id="monthlySurgeriesTable" style="width:100%;border-collapse:collapse;font-size:0.9em">
+          <thead>
+            <tr style="background:#222;border-bottom:2px solid #39ff14">
+              <th style="padding:8px;text-align:left;color:#39ff14">Month</th>
+              <th style="padding:8px;text-align:right;color:#ff3b30" id="latestYearHeader">Year</th>
+              <th style="padding:8px;text-align:right;color:#007bff" id="prevYearHeader">Year</th>
+            </tr>
+          </thead>
+          <tbody id="monthlySurgeriesTableBody">
+            <!-- JS will populate this -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Column: Details Container -->
+  <div class="right-column empty" id="detailsContainer">
+    <div style="text-align: center; color: #aaa;">
+      <div class="procedures-grid">
+      {% if surgeries_subcatg %}
+        {% for subcat in surgeries_subcatg %}
+          <div class="procedure-card">
+            <div class="procedure-title">{{ subcat }}</div>
+            <div class="procedure-desc">Details for {{ subcat }}...</div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p>Select a department to view procedures.</p>
+      {% endif %}
+    </div>
+    </div>
+  </div>
+</div>
+
+  <section class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-number">{{ stats.surgeries_count }}</div>
+      <div class="stat-label">Total Procedures</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">{{ stats.success_rate }}%</div>
+      <div class="stat-label">Success Rate</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">{{ stats.active_patients }}</div>
+      <div class="stat-label">Active Patients</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">{{ stats.scheduled_today }}</div>
+      <div class="stat-label">Scheduled Today</div>
+    </div>
+  </section>
+  <!-- Procedures directly displayed -->
+  <section>
+    <h3>Procedures</h3>
+    <div class="procedures-grid">
+      {% if surgeries_subcatg %}
+        {% for subcat in surgeries_subcatg %}
+          <div class="procedure-card">
+            <div class="procedure-title">{{ subcat }}</div>
+            <div class="procedure-desc">Details for {{ subcat }}...</div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p>Select a department to view procedures.</p>
+      {% endif %}
+    </div>
+  </section>
+</main>
+
+{{ surgeries_subcatg|json_script:"subcatg-labels" }}
+{{ surgeries_subcatg_values|json_script:"subcatg-values" }}
+
+<script>
+function toggleMenu() {
+  document.querySelector('.nav-links').classList.toggle('show');
+}
+
+// Hospital filter dropdown toggle & click handler
+document.addEventListener('click', function (e) {
+  const btn = document.getElementById('hospitalFilterBtn');
+  const menu = document.getElementById('hospitalFilterMenu');
+  if (!btn || !menu) return;
+
+  // Toggle when clicking the button
+  if (e.target && (e.target.id === 'hospitalFilterBtn' || e.target.closest('#hospitalFilterBtn'))) {
+    e.preventDefault();
+    menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
+    return;
+  }
+
+  // If click on hospital option, preserve other query params (e.g., department)
+  if (e.target && e.target.classList && e.target.classList.contains('hospital-option')) {
+    e.preventDefault();
+    const href = e.target.getAttribute('href') || '';
+    // extract hospital value from href ?hospital=...
+    const url = new URL(window.location.href);
+    const params = new URLSearchParams(href.replace(/^\?/, ''));
+    if (params.has('hospital')) {
+      url.searchParams.set('hospital', params.get('hospital'));
+    } else {
+      url.searchParams.delete('hospital');
+    }
+    // navigate
+    window.location.href = url.toString();
+    return;
+  }
+
+  // Close menu on outside click
+  if (menu.style.display === 'block' && !e.target.closest('#hospitalDropdownRoot')) {
+    menu.style.display = 'none';
+  }
+});
+
+// Chart.js Horizontal Bar Chart
+document.addEventListener("DOMContentLoaded", function() {
+  const ctx = document.getElementById('proceduresChart');
+  if (!ctx) return;
+
+  const labels = JSON.parse(document.getElementById('subcatg-labels')?.textContent || '[]');
+  const data = JSON.parse(document.getElementById('subcatg-values')?.textContent || '[]');
+
+  new Chart(ctx.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: labels.length ? labels : ['No Data'],
+      datasets: [{
+        label: 'Procedures Count',
+        data: data.length ? data : [0],
+        backgroundColor: [
+          'rgba(255, 99, 132, 0.8)',
+          'rgba(255, 159, 64, 0.8)',
+          'rgba(255, 205, 86, 0.8)',
+          'rgba(75, 192, 192, 0.8)',
+          'rgba(54, 162, 235, 0.8)',
+          'rgba(153, 102, 255, 0.8)'
+        ],
+        borderRadius: 6
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: { beginAtZero: true }
+      }
+    }
+  });
+});
+
+// Safely wire up hospital dropdown button if present
+const _hospitalBtn = document.getElementById('hospitalBtn');
+if (_hospitalBtn) {
+  _hospitalBtn.addEventListener('click', function() {
+    const parent = this.parentElement;
+    if (parent) parent.classList.toggle('show');
+  });
+}
+
+// Close dropdown if user clicks outside (guarded)
+window.addEventListener('click', function(e) {
+  if (!e.target || !e.target.matches || !e.target.matches('.dropbtn')) {
+    document.querySelectorAll('.dropdown').forEach(function(drop) {
+      drop.classList.remove('show');
+    });
+  }
+});
+
+// Handle department table row clicks (use URL API, guarded)
+document.addEventListener('DOMContentLoaded', function() {
+  const deptRows = document.querySelectorAll('#departmentsTable tbody tr[data-department]');
+  if (!deptRows || deptRows.length === 0) return;
+
+  deptRows.forEach(function(row) {
+    row.addEventListener('click', function() {
+      const dept = this.dataset.department;
+      if (!dept) return;
+
+      // Remove active class from all rows
+      document.querySelectorAll('#departmentsTable tbody tr').forEach(function(r) { r.classList.remove('active'); });
+      // Add active class to clicked row
+      this.classList.add('active');
+
+      // Build URL preserving other params
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('department', dept);
+        // navigate to new url
+        window.location.href = url.toString();
+      } catch (err) {
+        // fallback
+        const params = new URLSearchParams(window.location.search);
+        params.set('department', dept);
+        window.location.search = '?' + params.toString();
+      }
+    });
+  });
+});
+
+</script>
+
+<script>
+// Surgeries time-series chart: aggregate `surgeries` (theyr/themnth/thevalue)
+function initSurgeriesTimeChart() {
+  const canvas = document.getElementById('surgeriesTimeChart');
+  if (!canvas) return;
+
+  // series is a server-side JSON mapping like: {"2022": [..12 vals..], "2023": [..]}
+  let series = {};
+  try {
+    series = JSON.parse('{{ surgeries_time_series_json|escapejs }}' || '{}');
+  } catch (e) {
+    console.warn('missing or invalid surgeries_time_series_json', e);
+    series = {};
+  }
+
+  const monthLabels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // sort years numerically
+  const years = Object.keys(series).sort((a,b) => Number(a) - Number(b));
+
+  // Color: latest year => red, others => blue
+  const datasets = years.map((y) => {
+    const isLatest = Number(y) === Number(years[years.length - 1]);
+    const color = isLatest ? '#ff3b30' : '#007bff';
+    return {
+      label: y,
+      data: (series[y] || Array(12).fill(0)).slice(0,12),
+      fill: false,
+      borderColor: color,
+      backgroundColor: color,
+      tension: 0.2,
+      pointRadius: 3,
+      borderWidth: 2
+    };
+  });
+
+  const ctx = canvas.getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: { labels: monthLabels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+         
+        legend: { position: 'top', labels: { color: '#e6e6e6' } } 
+      },
+      scales: {
+        x: { ticks: { color: '#e6e6e6' }, grid: { color: '#333' } },
+        y: { ticks: { color: '#e6e6e6' }, beginAtZero: true, grid: { color: '#333' } }
+      }
+      
+      
+    }
+  });
+
+  // Populate monthly surgeries tables for the last two years
+  const latestYear = years[years.length - 1];
+  const prevYear = years.length > 1 ? years[years.length - 2] : null;
+  const latestData = series[latestYear] || Array(12).fill(0);
+  const prevData = prevYear ? (series[prevYear] || Array(12).fill(0)) : null;
+  
+  // Update headers with year labels
+  const latestYearHeader = document.getElementById('latestYearHeader');
+  const prevYearHeader = document.getElementById('prevYearHeader');
+  if (latestYearHeader) latestYearHeader.textContent = latestYear;
+  if (prevYearHeader && prevYear) {
+    prevYearHeader.textContent = prevYear;
+    prevYearHeader.style.display = 'table-cell';
+  } else if (prevYearHeader) {
+    prevYearHeader.style.display = 'none';
+  }
+  
+  const tbody = document.getElementById('monthlySurgeriesTableBody');
+  if (tbody) {
+    tbody.innerHTML = '';
+    monthLabels.forEach((month, idx) => {
+      const latestCount = latestData[idx] || 0;
+      const prevCount = prevData ? (prevData[idx] || 0) : 0;
+      const row = document.createElement('tr');
+      row.style.borderBottom = '1px solid #333';
+      const prevCell = prevYear ? `<td style="padding:8px;text-align:right;color:#007bff;font-weight:700">${prevCount}</td>` : '';
+      row.innerHTML = `<td style="padding:8px;color:#e6e6e6">${month}</td><td style="padding:8px;text-align:right;color:#ff3b30;font-weight:700">${latestCount}</td>${prevCell}`;
+      tbody.appendChild(row);
+    });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  try { initSurgeriesTimeChart(); } catch (err) { console.error('time chart error', err); }
+});
+</script>
+
+</body>
+</html>
